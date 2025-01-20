@@ -3,7 +3,7 @@ from firebase_admin import credentials, firestore,db
 
 # Initialize the Firebase app
 cred = credentials.Certificate('testpython-673c0.json')
-firebase_admin.initialize_app(cred, {"databaseURL": "https://testpython-673c0.firebaseio.com"})
+firebase_admin.initialize_app(cred, {"databaseURL": "https://testpython-673c0-default-rtdb.firebaseio.com/"})
 
 ref = db.reference('users')
 
