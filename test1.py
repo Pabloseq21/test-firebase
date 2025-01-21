@@ -18,14 +18,5 @@ def add_data(collection_name, document_name, data):
 ref.set({ 
     'usuario': input ("ingrese su usuario: "),
     'email': input('ingrese su email: ')
-})
-
-# añadir historias de usuario 
-historias = db.collection('historias')
-historias.add({
-    'nombre': 'historia1',
-    'descripcion': 'descripcion1'
-})
-
-def escuchar_eventos(event):
-    print(f"cambio: {event.document_id}")
+}
+add_data('users', 'user1', registro)
