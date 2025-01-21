@@ -20,5 +20,12 @@ ref.set({
     'email': input('ingrese su email: ')
 })
 
+# añadir historias de usuario 
+historias = db.collection('historias')
+historias.add({
+    'nombre': 'historia1',
+    'descripcion': 'descripcion1'
+})
+
 def escuchar_eventos(event):
     print(f"cambio: {event.document_id}")
