@@ -14,9 +14,17 @@ db = firestore.client()
 def add_data(collection_name, document_name, data):
     db.collection(collection_name).document(document_name).set(data)
 
-# Example usage
 ref.set({ 
     'usuario': input ("ingrese su usuario: "),
     'email': input('ingrese su email: ')
-}
-add_data('users', 'user1', registro)
+})
+
+# añadir historias de usuario 
+historias = db.collection('historias')
+historias.add({
+    'nombre': 'historia1',
+    'descripcion': 'descripcion1'
+})
+
+def escuchar_eventos(event):
+    print(f"cambio: {event.document_id}")
