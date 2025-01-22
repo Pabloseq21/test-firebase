@@ -4,7 +4,7 @@ import requests
 
 # Inicializar Firebase con las credenciales
 def initialize_firebase():
-    cred = credentials.Certificate('testpython-673c0-firebase-adminsdk-b93r7-ed88edb4da.json')
+    cred = credentials.Certificate('testpython-673c0-firebase-adminsdk-b93r7-3f13d33808.json')
     firebase_admin.initialize_app(cred, {"databaseURL": "https://testpython-673c0-default-rtdb.firebaseio.com/"})
     print("Firebase inicializado.")
 
@@ -26,7 +26,8 @@ def sign_up(email, password, display_name):
         ref.set({
             'email': email,
             'display_name': display_name,
-            'score': 0  # Inicializamos la puntuación en 0
+            'score': 0,
+            'level': 0
         })
         print("Usuario agregado a la base de datos.")
     except Exception as e:
@@ -42,14 +43,14 @@ def sign_in(email, password, api_key):
     }
     
     try:
-        # Hacer la solicitud POST a la API de Firebase Authentication
+        
         response = requests.post(f"{url}?key={api_key}", json=payload)
         response_data = response.json()
         
         # Verificar si el inicio de sesión fue exitoso
         if response.status_code == 200:
-            print(f"\nBienvenido al juego, {response_data['email']}!")
-            return response_data['idToken']  # Retornar el token de sesión
+            print(f"\nBienvenido al juego!")
+            return response_data['idToken']  
         else:
             print(f"Error: {response_data['error']['message']}")
             return None
@@ -57,6 +58,15 @@ def sign_in(email, password, api_key):
         print(f"Error en el inicio de sesión: {e}")
         return None
 
+# Función para actualizar el nivel del usuario
+def update_level(user_id, level ):
+    try:
+        ref = db.reference(f'users/{user_id}')
+        ref.update({'level': level})
+        print(f"¡Felicidades! Avanzaste al nivel: {level}.")
+    except Exception as e:
+        print(f"Error al actualizar el nivel: {e}")
+        
 # Función para actualizar la puntuación del usuario
 def update_score(user_id, score):
     try:
@@ -112,6 +122,9 @@ def main():
         id_token = sign_in(email, password, api_key)
         
         if id_token:
+            # Inicializa la puntuación antes del juego
+            score = 0  # Puntuación inicial (puedes cargarla de la base de datos si lo prefieres)
+            
             # Menú de juego
             while True:
                 print("\nMenú de juego:")
@@ -121,9 +134,43 @@ def main():
                 
                 choice = input("Selecciona una opción: ")
                 
-                if choice == '1':  # Jugar
-                    score = int(input("Introduce tu puntuación obtenida: "))
-                    update_score(user.uid, score)
+                if choice == '1': # Jugar
+                    while True:
+                        print("\nMapas : ")
+                        print("a.city")
+                        print("b.bosque del terror")
+                        print("c.cabaña")
+                        print("d.salir")
+                        choice = input("Selecciona un mapa : " )
+                        if choice == 'a' :
+                            print ("entraste a nivel a")
+                            score = int(input("Introduce tu puntuación obtenida: "))
+                            update_score(user.uid, score)
+                            if score > 50 :
+                                print ("¡Felicidades! Pasaste al siguiente nivel")
+                        if choice == 'b' :
+                            if score > 50 :
+                                print ("entraste al nivel b")
+                                score = int(input("Introduce tu puntuación obtenida: "))
+                                update_score(user.uid, score)
+                            else :
+                                print("Para pasar al nivel b tienes que tener más de 50 puntos")
+                                
+                            if score > 100 : 
+                                print ("¡Felicidades! Pasaste al siguiente nivel")
+                        if choice == 'c' :
+                            if score > 200:
+                                print("entraste al nivel c")
+                                
+                                score = int(input("Introduce tu puntuación obtenida: "))
+                                update_score(user.uid, score)
+                            else:
+                                print ("¡Felicidades! Completaste el juego")
+                        if choice == 'd':  
+                           print("Gracias por jugar, ¡hasta la próxima!")
+                           break
+                        else:
+                            print("Opción no válida. Por favor, elige una opción válida.")
                 
                 elif choice == '2':  # Ver el top 3
                     show_top_scores()
@@ -147,4 +194,3 @@ def main():
 if __name__ == "__main__":
     initialize_firebase()  # Inicializar Firebase
     main()  # Ejecutar el flujo de inicio de sesión y registro
-
