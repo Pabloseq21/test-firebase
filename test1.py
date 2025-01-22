@@ -1,95 +1,150 @@
-#importacion de las librerias a utilizar desde firebase_admin
-
 import firebase_admin
-from firebase_admin import credentials, firestore, db, auth
+from firebase_admin import credentials, auth, db
+import requests
 
-#funcion para inicializar firebase con la llave de autentificacion del proyecto de firebase 
-
+# Inicializar Firebase con las credenciales
 def initialize_firebase():
-    cred = credentials.Certificate('testpython-673c0.json')
+    cred = credentials.Certificate('testpython-673c0-firebase-adminsdk-b93r7-ed88edb4da.json')
     firebase_admin.initialize_app(cred, {"databaseURL": "https://testpython-673c0-default-rtdb.firebaseio.com/"})
+    print("Firebase inicializado.")
 
-    print("Firebase inicializado")
-
-# funcion para añadir datos a la base de datos en firebase 
-def add_data(collection_name, document_name, data):
-    db.collection(collection_name).document(document_name).set(data)
-    print(f"Datos añadidos a {collection_name}/{document_name}") 
-
-#creacion de nuevos usuarios con correo , nombre y contraseña (el usuario desea crear una cuenta para jugar o ver su informacion)
-#funcion para generar un nuevo usuario con correo, nombre y contraseña, usamos auth para la autentificacion de usuarios 
-
-def sign_up(email, name, password):
+# Función para registrar un nuevo usuario en Firebase Authentication
+def sign_up(email, password, display_name):
     try:
         user = auth.create_user(
-        email = email,
-        display_name = name,
-        password = password)
-        print (f"\n¡Usuario registrado exitosamente!")
+            email=email,
+            password=password,
+            display_name=display_name
+        )
+        print(f"\n¡Usuario registrado exitosamente!")
         print(f"Usuario creado: {user.uid}")
         print(f"Nombre: {user.display_name}")
         print(f"Email: {user.email}")
-    except Exception as e: 
-        print(f"Error: {e}")   
+        
+        # Agregar el usuario a la base de datos Realtime
+        ref = db.reference(f'users/{user.uid}')
+        ref.set({
+            'email': email,
+            'display_name': display_name,
+            'score': 0  # Inicializamos la puntuación en 0
+        })
+        print("Usuario agregado a la base de datos.")
+    except Exception as e:
+        print(f"Error: {e}")
 
+# Función para iniciar sesión
+def sign_in(email, password, api_key):
+    url = "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword"
+    payload = {
+        "email": email,
+        "password": password,
+        "returnSecureToken": True
+    }
+    
+    try:
+        # Hacer la solicitud POST a la API de Firebase Authentication
+        response = requests.post(f"{url}?key={api_key}", json=payload)
+        response_data = response.json()
+        
+        # Verificar si el inicio de sesión fue exitoso
+        if response.status_code == 200:
+            print(f"\nBienvenido al juego, {response_data['email']}!")
+            return response_data['idToken']  # Retornar el token de sesión
+        else:
+            print(f"Error: {response_data['error']['message']}")
+            return None
+    except Exception as e:
+        print(f"Error en el inicio de sesión: {e}")
+        return None
 
+# Función para actualizar la puntuación del usuario
+def update_score(user_id, score):
+    try:
+        ref = db.reference(f'users/{user_id}')
+        ref.update({'score': score})
+        print(f"Puntuación actualizada: {score} puntos.")
+    except Exception as e:
+        print(f"Error al actualizar la puntuación: {e}")
+
+# Función para ver el top 3 de las mejores puntuaciones
+def show_top_scores():
+    try:
+        # Obtener todos los usuarios con sus puntuaciones
+        ref = db.reference('users')
+        users_data = ref.get()
+        
+        # Filtrar y ordenar los usuarios por puntuación
+        top_scores = []
+        for user_id, user_info in users_data.items():
+            # Verificar si 'score' y 'display_name' existen
+            if 'score' in user_info and 'display_name' in user_info:
+                top_scores.append((user_info['display_name'], user_info['score']))
+        
+        # Ordenar de mayor a menor
+        top_scores.sort(key=lambda x: x[1], reverse=True)
+        
+        # Mostrar los 3 mejores
+        print("\nTop 3 de los mejores jugadores:")
+        for idx, (name, score) in enumerate(top_scores[:3]):
+            print(f"{idx + 1}. {name} - {score} puntos")
+        
+        if not top_scores:
+            print("No hay puntuaciones registradas aún.")
+    
+    except Exception as e:
+        print(f"Error al obtener el top de puntuaciones: {e}")
+
+# Función principal para el flujo interactivo
 def main():
-    print("__ Registro de Usuario __")
-    display_name = input("Introduce tu nombre de usuario: ")
+    print("Bienvenido, por favor ingresa tus datos.")
+    
+    # Solicitar el correo y contraseña
     email = input("Introduce tu correo electrónico: ")
     password = input("Introduce tu contraseña: ")
     
-    # Validar entradas 
-    if not display_name or not email or not password:
-        print("\nTodos los campos son obligatorios.")
-        return 
+    # Verificar si el usuario existe en Firebase Authentication
+    try:
+        user = auth.get_user_by_email(email)
+        print(f"Usuario encontrado: {user.display_name}")
+        
+        # Si el usuario existe, iniciar sesión
+        api_key = "AIzaSyBN0ttX9ElGFnmaO0y2HLZEv1HAjnd8cgc"  # Reemplazar con tu clave API de Firebase
+        id_token = sign_in(email, password, api_key)
+        
+        if id_token:
+            # Menú de juego
+            while True:
+                print("\nMenú de juego:")
+                print("1. Jugar")
+                print("2. Ver a los mejores de los mejores")
+                print("3. Salir")
+                
+                choice = input("Selecciona una opción: ")
+                
+                if choice == '1':  # Jugar
+                    score = int(input("Introduce tu puntuación obtenida: "))
+                    update_score(user.uid, score)
+                
+                elif choice == '2':  # Ver el top 3
+                    show_top_scores()
+                
+                elif choice == '3':  # Salir
+                    print("Gracias por jugar, ¡hasta la próxima!")
+                    break
+                
+                else:
+                    print("Opción no válida. Por favor, elige una opción válida.")
+    
+    except auth.UserNotFoundError:
+        # Si el usuario no existe, solicitar los datos para registrarlo
+        print("Usuario no encontrado.")
+        display_name = input("Introduce tu nombre de usuario: ")
+        
+        # Registrar nuevo usuario
+        sign_up(email, password, display_name)
 
-    sign_up(email, display_name, password)
+# Ejecutar el flujo principal
 if __name__ == "__main__":
     initialize_firebase()  # Inicializar Firebase
-    main()  # Ejecutar la aplicación
+    main()  # Ejecutar el flujo de inicio de sesión y registro
 
-# inicio de secion para usuarios con correo , nombre y contraseña 
-#importar la libreria requests de http
-import requests
-
-#(el usuario desea iniciar secion para jugar o ver su informacion)
-#funcion para iniciar sesion, junto con la url de la api y la llave de la api para asociarlo con el proyecto de firebase
-#se crea un diccionario con los datos del usuario y se envia a la api, la cual verifica que el usuario y contraseña sean correctos y devuelve un token de inicio de sesion
-
-def sign_in(email, name, password):
-    url = "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword"
-    api_key = "testpython-673c0.json" 
-    payload = {
-        "email": input ("email"),
-        "displayName": input ("name"),
-        "password": input ("password"),
-        "returnSecureToken": True
-    }
-    try:
-        response = requests.post(f"{url}?key={api_key}", json=payload)
-        response_data = response.json()
-        if response.status_code == 200:
-            print(f"Inicio de sesión exitoso. ID Token: {response_data['idToken']}")
-        else:
-            print(f"Error: {response_data['error']['message']}")
-    except Exception as e:
-        print(f"Error en el inicio de sesión: {e}")
-
-#  para actualizar el nombre de un usuario en firebase (el usuario desea actualizar su nombre o cambiarlo)
-def update_user(uid, name):
-    try:
-        user = auth.update_user(uid, display_name="new name")
-        print(f"Nombre de usuario actualizado: {user.display_name}")
-    except Exception as e:
-        print(f"Error al actualizar el nombre del usuario: {e}")
-
-# recuperar el nombre de un usuario (el usuario desea recuperar su nombre ya que se le perdio o no lo recuerda)
-def get_user_info(uid):
-    try:
-        user = auth.get_user(uid)
-        print(f"Usuario: {user.uid}")
-        print(f"Correo electrónico: {user.email}")
-        print(f"Nombre: {user.display_name}")
-    except Exception as e:
-        print(f"Error al obtener la información del usuario: {e}")
